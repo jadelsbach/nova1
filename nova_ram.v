@@ -16,6 +16,8 @@
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
+`include "nova_defs.v"
+
 module nova_ram(pclk, prst, mm_adr, mm_we, mm_din, mm_dout);
    parameter addr_width = 16;
    parameter mem_size = 1 << addr_width;
@@ -36,17 +38,37 @@ module nova_ram(pclk, prst, mm_adr, mm_we, mm_din, mm_dout);
 
    assign w_adr_masked = mm_adr[0:addr_width-1];
    assign mm_dout = (~mm_we) ? m_mem[w_adr_masked] : 16'h0000;
-      
+
    always @(posedge pclk) begin
-      if(prst) begin	 
+      if(prst) begin
 	for(i = 0; i < mem_size; i = i + 1)
-	   m_mem[i] <= 16'h0000;
+	   m_mem[i] = 16'h0000;
 //	   #9 $readmemh("rdos.hex", m_mem);
+
+	 // Interrupt test
+
+	 m_mem[1] = 16'b0000_0000_0000_0100; // @4
+
+	 // IORST
+	 m_mem[2][0:2] = 3'b011;
+	 m_mem[2][`NOVA_IO_TRANSFER] = `NOVA_IO_TRANSFER_DIC;
+	 m_mem[2][`NOVA_IO_CONTROL] = `NOVA_IO_CONTROL_CLR;
+	 m_mem[2][`NOVA_IO_DEVICE] = 6'o77;
+
+	 // JMP 2
+	 m_mem[3][`NOVA_LS_DISPLACE] = 8'h2;
+
+	 // HALT
+	 m_mem[4][0:2] = 3'b011;
+	 m_mem[4][`NOVA_IO_TRANSFER] = `NOVA_IO_TRANSFER_DOC;
+	 m_mem[4][`NOVA_IO_CONTROL] = `NOVA_IO_CONTROL_CLR;
+	 m_mem[4][`NOVA_IO_DEVICE] = 6'o77;
+
       end
       else begin
 	 if(mm_we) begin
 	   // $display("M[%h] = %h", mm_adr, mm_din);
-	    
+
 	   m_mem[w_adr_masked] <= mm_din;
 	 end
       end

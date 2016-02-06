@@ -147,17 +147,20 @@ module nova_cpu(
 			inst_io_transfer == `NOVA_IO_TRANSFER_DOC |
 			inst_io_transfer == `NOVA_IO_TRANSFER_NIO |
 			inst_io_transfer == `NOVA_IO_TRANSFER_SKP);
-			
+
    // CPU device
    wire cntrl_halt;
+   wire cntrl_intr;
+   reg 	cntrl_intr_ack;
+
    nova_io_cpu cpu_dev(pclk, prst, 
 		       bs_rst, bs_stb, bs_we, bs_adr, bs_din, bs_dout,
-		       cntrl_halt
+		       cntrl_halt, cntrl_intr, cntrl_intr_ack
 		      );
-		      
+
    wire w_stall;
    assign w_stall = mm_inhibit | cntrl_halt;
-      
+
    // State machine
    reg [0:2]   r_state;
    localparam SFETCHI1   = 3'b000;
@@ -171,10 +174,10 @@ module nova_cpu(
    // synthesis translate_off
    nova_disa disassembler(pclk,io_pulse, r_inst, r_PC);
    // synthesis translate_on
-   
+
    always @(posedge pclk) begin
       if(prst) begin
-	 r_PC <= 15'o230;   // XXX
+	 r_PC <= 2;   // XXX
 	 r_AC0 <= 16'h0000;
 	 r_AC1 <= 16'h0000;
 	 r_AC2 <= 16'h0000;
@@ -184,7 +187,9 @@ module nova_cpu(
 	 mm_adr <= 16'hzzzz;
 	 mm_dout <= 16'hzzzz;
 	 mm_we <= 1'bz;
-	 
+
+	 cntrl_intr_ack <= 1'b0;
+
 	 r_state <= SFETCHI1;
 	 r_inst <= 16'h0000;
 	 r_indirect <= 1'b0;
@@ -197,12 +202,28 @@ module nova_cpu(
 	   SFETCHI1:
 	     begin
 		if(~w_stall) begin
-		  mm_we <= 1'b0;
-		  mm_adr <= r_PC;
-		  mm_grant <= 1'b0;
-		  r_state <= SFETCHI2;
-		
-		  r_indirect <= 1'b0;
+		   if(cntrl_intr) begin
+		      mm_we <= 1'b1;
+		      mm_adr <= 16'h0000;
+		      mm_dout <= r_PC;
+
+		      r_inst <= 16'b0000_0100_0000_0001; // JMP @1
+		      r_state <= SEXEC;
+		      r_indirect <= 1'b0;
+
+		      cntrl_intr_ack <= 1'b1;
+
+		      $display("%m: Interrupt!\n");
+
+		   end
+		   else begin
+		      mm_we <= 1'b0;
+		      mm_adr <= r_PC;
+		      mm_grant <= 1'b0;
+		      r_state <= SFETCHI2;
+
+		      r_indirect <= 1'b0;
+		   end
 		end
 		else if(mm_inhibit) begin
 		  mm_grant <= 1'b1;
@@ -222,9 +243,11 @@ module nova_cpu(
 	   SEXEC:
 	     begin
 		io_pulse <= 1'b0;
-		
+		cntrl_intr_ack <= 1'b0;
+		mm_we <= 1'b0;
+
 		if(w_ls_inst) begin
-		   if(~r_indirect & inst_ls_indirect) begin		      
+		   if(~r_indirect & inst_ls_indirect) begin
 		      mm_we <= 1'b0;
 		      mm_adr <= w_E;
 		      r_state <= SINDIRECT;
@@ -344,8 +367,8 @@ module nova_cpu(
 		   r_saved_mem <= mm_din;
 		   r_indirect <= 1'b1;
 		   r_state <= SEXEC;
-//		   $display("Indirection Resolve %h -> %h (%h)", 
-//			    w_E, mm_adr[1:15], mm_din);
+		   //$display("Indirection Resolve %h -> %h (%h)",
+		   // w_E, mm_adr[1:15], mm_din);
 		end
 	     end // case: SINDIRECT
 	   SINDIRECTW:

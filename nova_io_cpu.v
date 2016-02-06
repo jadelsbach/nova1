@@ -16,9 +16,9 @@
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-module nova_io_cpu(pclk, prst, 
+module nova_io_cpu(pclk, prst,
 		   bs_rst, bs_stb, bs_we, bs_adr, bs_din, bs_dout,
-		   cntrl_halt
+		   cntrl_halt, cntrl_intr, cntrl_intr_ack
 		   );
    input pclk;
    input prst;
@@ -27,27 +27,49 @@ module nova_io_cpu(pclk, prst,
    input bs_we;
    input [0:7] bs_adr;
    input [0:15] bs_din;
-   output reg [0:15] bs_dout;  
-   
+   output reg [0:15] bs_dout;
+
    output reg cntrl_halt;
+   output reg cntrl_intr;
+   input      cntrl_intr_ack;
+
 
    parameter device_addr = 6'o77;
 
    reg 		     r_int_en;
    reg [0:15] 	     r_int_mask;
    reg r_iorst;
-   
+
    assign bs_rst = prst | r_iorst;
-   
+
+   // XXX
+   integer i = 0;
+   reg 	   tmp = 1;
+
+
    always @(posedge pclk) begin
+
+      // XXX
+      i  = i+1;
+      if(i > 200) begin
+	 cntrl_intr <= tmp;
+	 tmp = 0;
+      end
+
       if(prst) begin
 	 bs_dout <= 16'hzzzz;
 	 r_int_en <= 1'b0;
 	 r_int_mask <= 16'h0000;
 	 cntrl_halt <= 1'b0;
+	 cntrl_intr <= 1'b0;
 	 r_iorst <= 1'b0;
       end
       else begin
+	 if(cntrl_intr & cntrl_intr_ack) begin
+	    cntrl_intr <= 1'b0;
+	    r_int_en <= 1'b0;
+	 end
+
 	 if(bs_stb & bs_adr[0:5] == device_addr) begin
 	    if(bs_we) begin
 	       case(bs_adr[6:7])

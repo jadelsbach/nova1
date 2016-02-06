@@ -16,9 +16,10 @@ module tb;
    wire [0:15] bs_dout;
    wire [0:15] bs_din;
    wire bs_rst;
-   wire mm_inhibit ;
+   reg 	mm_inhibit = 1'b0;
+
    wire mm_grant;
-   
+
    nova_ram ram(clk, rst, mm_adr, mm_we, mm_din, mm_dout);
    nova_cpu cpu(
 		clk, rst,
