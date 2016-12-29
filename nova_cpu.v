@@ -213,8 +213,9 @@ module nova_cpu(
 
 		      cntrl_intr_ack <= 1'b1;
 
+		      // synthesis translate_off
 		      $display("%m: Interrupt!\n");
-
+		      // synthesis translate_on
 		   end
 		   else begin
 		      mm_we <= 1'b0;

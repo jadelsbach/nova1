@@ -42,20 +42,7 @@ module nova_io_cpu(pclk, prst,
 
    assign bs_rst = prst | r_iorst;
 
-   // XXX
-   integer i = 0;
-   reg 	   tmp = 1;
-
-
    always @(posedge pclk) begin
-
-      // XXX
-      i  = i+1;
-      if(i > 200) begin
-	 cntrl_intr <= tmp;
-	 tmp = 0;
-      end
-
       if(prst) begin
 	 bs_dout <= 16'hzzzz;
 	 r_int_en <= 1'b0;
@@ -65,6 +52,7 @@ module nova_io_cpu(pclk, prst,
 	 r_iorst <= 1'b0;
       end
       else begin
+	 // Disable interrupts and deassert interrupt request
 	 if(cntrl_intr & cntrl_intr_ack) begin
 	    cntrl_intr <= 1'b0;
 	    r_int_en <= 1'b0;
@@ -83,7 +71,8 @@ module nova_io_cpu(pclk, prst,
 			2'b10:
 			  r_int_en <= 1'b0;
 			2'b11:
-			  $display("%m 64K Enable? %b (unsupported)", bs_din[0]);
+			  $display("%m 64K Enable? %b (unsupported)", 
+				   bs_din[0]);
 		      endcase // case (bs_din[0:1])
 		   end
 		 2'b01:
